@@ -95,7 +95,8 @@ impl Service<hyper_dns::Name> for TrustDnsResolver {
 fn is_allowed(addr: IpAddr) -> bool {
     match addr {
         IpAddr::V4(addr) => {
-            !addr.is_loopback()
+            !addr.is_private()
+                   && !addr.is_loopback()
                 && !addr.is_link_local()
                 && !addr.is_broadcast()
                 && !addr.is_documentation()
@@ -152,4 +153,37 @@ fn is_unique_local(addr: Ipv6Addr) -> bool {
 
 fn is_documentation_v6(addr: Ipv6Addr) -> bool {
     (addr.segments()[0] == 0x2001) && (addr.segments()[1] == 0xdb8)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::net::IpAddr;
+
+    use crate::dns::is_allowed;
+
+    #[test]
+    fn is_allowed_test() {
+        assert!(!is_allowed(IpAddr::from([10, 254, 0, 0])));
+        assert!(!is_allowed(IpAddr::from([192, 168, 10, 65])));
+        assert!(!is_allowed(IpAddr::from([172, 16, 10, 65])));
+        assert!(!is_allowed(IpAddr::from([0, 1, 2, 3])));
+        assert!(!is_allowed(IpAddr::from([0, 0, 0, 0])));
+        assert!(!is_allowed(IpAddr::from([127, 0, 0, 1])));
+        assert!(!is_allowed(IpAddr::from([169, 254, 45, 1])));
+        assert!(!is_allowed(IpAddr::from([255, 255, 255, 255])));
+        assert!(!is_allowed(IpAddr::from([192, 0, 2 ,255])));
+        assert!(!is_allowed(IpAddr::from([198, 51, 100, 65])));
+        assert!(!is_allowed(IpAddr::from([203, 0, 113, 6])));
+        assert!(!is_allowed(IpAddr::from([100, 100, 0, 0])));
+        assert!(!is_allowed(IpAddr::from([192, 0, 0, 0])));
+        assert!(!is_allowed(IpAddr::from([192, 0, 0, 255])));
+        assert!(!is_allowed(IpAddr::from([250, 10, 20, 30])));
+        assert!(!is_allowed(IpAddr::from([198, 18, 0, 0])));
+
+        assert!(is_allowed(IpAddr::from([1, 1, 1, 1])));
+
+        assert!(!is_allowed(IpAddr::from([0, 0, 0, 0, 0, 0, 0, 0x1])));
+
+        assert!(is_allowed(IpAddr::from([0, 0, 0, 0xffff, 0, 0, 0, 0x1])));
+    }
 }
